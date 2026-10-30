@@ -2,9 +2,9 @@
 
 Tiếng Việt | [English](README_EN.md)
 
-Thư mục này gom mã nguồn cho khóa luận "Nhóm 3": một mô hình chú thích ảnh nhỏ (CLIP ViT-B/16 + bộ giải mã Transformer) có
+Thư mục này gom mã nguồn cho khóa luận tốt nghiệp: một mô hình chú thích ảnh nhỏ (CLIP ViT-B/16 + bộ giải mã Transformer) có
 cơ chế giảm **ảo giác đối tượng** (câu mô tả nhắc đến vật thể không có trong ảnh) mà vẫn giữ chất lượng câu. Gồm notebook huấn luyện,
-script đánh giá và ứng dụng demo. Đây là **bản sao** của `research/notebooks/` và `research/scripts/`; thư mục phải nằm trong `demo/` vì các script dùng module ở gốc `demo/`.
+script đánh giá và ứng dụng demo.
 
 ## 1. Bài toán và ý tưởng
 
@@ -20,22 +20,38 @@ bằng BLEU, METEOR, ROUGE-L, CIDEr, SPICE.
 
 ## 2. Pipeline
 
-```
-HUẤN LUYỆN (Kaggle)                                   notebooks/02
- ảnh ──► CLIP ViT-B/16 (đóng băng) ──► Transformer 3 lớp ──► logits ──► cross-entropy (làm trơn nhãn 0,1)
-                                            │                    ▲
-                                            │            Dynamic Logits: trừ logits vật thể vắng mặt (chỉ khi train)
-                                            └── trạng thái ẩn ──► attention pooling ──► mất mát tương phản (2 câu dương, 3 câu âm)
+**Huấn luyện** (`notebooks/02`, chạy trên Kaggle)
 
-SUY LUẬN                                              eval/ và notebooks/eval/
- ảnh ─┬─► YOLO-World (yolov8l-worldv2, ngưỡng 0,25) ──────────────┐
-      └─► CLIP ViT-B/32 ─► top-5 câu gần nhất (kho train+restval) ─┴─► E(I) = YOLO ∪ {vật thể có ≥ 3/5 câu nhắc}
-                                                                          │
- ảnh ─► bộ sinh câu ─► logits ──► trừ δ = 3 ở từ chỉ vật thể ∉ E(I) ◄────────┘
-                       │
-                       └─► beam search (3) + diverse beam search (10 chùm, 5 nhóm) ─► ≤ 5 câu ứng viên
-                                                   │
-                       chọn lại câu: S = 0,2·S_base + 0,4·S_align + 0,4·S_belief + 1·S_obj + 0,1·S_retr ─► câu cuối
+```mermaid
+flowchart LR
+    IMG["Ảnh"] --> CLIP["CLIP ViT-B/16<br/>(đóng băng)"]
+    CLIP --> DEC["Bộ giải mã Transformer<br/>3 lớp"]
+    DEC --> LOG["Logits"]
+    DYN["Dynamic Logits<br/>trừ logits vật thể vắng mặt<br/>(chỉ khi huấn luyện)"] --> LOG
+    LOG --> CE["Cross-entropy<br/>(làm trơn nhãn 0,1)"]
+    DEC -- "trạng thái ẩn" --> POOL["Attention pooling"]
+    POOL --> CON["Mất mát tương phản<br/>(2 câu dương, 3 câu âm)"]
+    CE --> LOSS["Tổng mất mát"]
+    CON --> LOSS
+```
+
+**Suy luận** (`eval/` và `notebooks/eval/`)
+
+```mermaid
+flowchart TD
+    IMG["Ảnh"] --> YOLO["YOLO-World<br/>yolov8l-worldv2, ngưỡng 0,25"]
+    IMG --> RET["CLIP ViT-B/32<br/>top-5 câu gần nhất<br/>(kho train + restval)"]
+    IMG --> GEN["Bộ sinh câu"]
+    YOLO --> EV["Tập bằng chứng E(I)<br/>= YOLO ∪ vật thể có ≥ 3/5 câu nhắc"]
+    RET --> EV
+    EV --> BLOCK["Luật chặn logits<br/>trừ δ = 3 ở từ chỉ vật thể ∉ E(I)"]
+    GEN --> BLOCK
+    BLOCK --> BEAM["Beam search (3) + diverse beam search<br/>(10 chùm, 5 nhóm)"]
+    BEAM --> CAND["Tối đa 5 câu ứng viên"]
+    CAND --> RERANK["Chọn lại câu năm tín hiệu<br/>S = 0,2·S_base + 0,4·S_align + 0,4·S_belief<br/>+ 1·S_obj + 0,1·S_retr"]
+    EV -. "S_obj" .-> RERANK
+    RET -. "S_retr" .-> RERANK
+    RERANK --> OUT["Câu cuối"]
 ```
 
 Năm tín hiệu chọn lại câu (mỗi tín hiệu chuẩn hóa min-max trong tập ứng viên của một ảnh):

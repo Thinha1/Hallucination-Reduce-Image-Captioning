@@ -2,10 +2,9 @@
 
 [Tiếng Việt](README.md) | English
 
-This folder collects the code of the graduation thesis of "Group 3": a small image captioning model (CLIP ViT-B/16 + Transformer
+This folder collects the code of the graduation thesis: a small image captioning model (CLIP ViT-B/16 + Transformer
 decoder) with mechanisms that reduce **object hallucination** (captions that mention objects that are not in the image) while keeping caption
-quality. It contains the training notebooks, the evaluation scripts and a demo web app. It is a **copy** of `research/notebooks/` and
-`research/scripts/`; the folder must stay inside `demo/` because the scripts import modules from the `demo/` root.
+quality. It contains the training notebooks, the evaluation scripts and a demo web app.
 
 ## 1. Problem and idea
 
@@ -21,22 +20,38 @@ The idea is to control hallucination at **three stages**, without retraining the
 
 ## 2. Pipeline
 
-```
-TRAINING (Kaggle)                                     notebooks/02
- image ─► CLIP ViT-B/16 (frozen) ─► 3-layer Transformer ─► logits ─► cross-entropy (label smoothing 0.1)
-                                          │                   ▲
-                                          │           Dynamic Logits: subtract logits of absent objects (training only)
-                                          └── hidden states ─► attention pooling ─► contrastive loss (2 positives, 3 negatives)
+**Training** (`notebooks/02`, run on Kaggle)
 
-INFERENCE                                             eval/ and notebooks/eval/
- image ─┬─► YOLO-World (yolov8l-worldv2, threshold 0.25) ─────────────┐
-        └─► CLIP ViT-B/32 ─► top-5 nearest captions (train+restval) ──┴─► E(I) = YOLO ∪ {objects named by ≥ 3 of 5 captions}
-                                                                            │
- image ─► captioner ─► logits ──► subtract δ = 3 on object words ∉ E(I) ◄───┘
-                        │
-                        └─► beam search (3) + diverse beam search (10 beams, 5 groups) ─► ≤ 5 candidates
-                                                │
-                        rerank: S = 0.2·S_base + 0.4·S_align + 0.4·S_belief + 1·S_obj + 0.1·S_retr ─► final caption
+```mermaid
+flowchart LR
+    IMG["Image"] --> CLIP["CLIP ViT-B/16<br/>(frozen)"]
+    CLIP --> DEC["3-layer Transformer<br/>decoder"]
+    DEC --> LOG["Logits"]
+    DYN["Dynamic Logits<br/>subtract logits of absent objects<br/>(training only)"] --> LOG
+    LOG --> CE["Cross-entropy<br/>(label smoothing 0.1)"]
+    DEC -- "hidden states" --> POOL["Attention pooling"]
+    POOL --> CON["Contrastive loss<br/>(2 positives, 3 negatives)"]
+    CE --> LOSS["Total loss"]
+    CON --> LOSS
+```
+
+**Inference** (`eval/` and `notebooks/eval/`)
+
+```mermaid
+flowchart TD
+    IMG["Image"] --> YOLO["YOLO-World<br/>yolov8l-worldv2, threshold 0.25"]
+    IMG --> RET["CLIP ViT-B/32<br/>top-5 nearest captions<br/>(train + restval store)"]
+    IMG --> GEN["Captioner"]
+    YOLO --> EV["Evidence set E(I)<br/>= YOLO ∪ objects named by ≥ 3 of 5 captions"]
+    RET --> EV
+    EV --> BLOCK["Logit-blocking rule<br/>subtract δ = 3 on object words ∉ E(I)"]
+    GEN --> BLOCK
+    BLOCK --> BEAM["Beam search (3) + diverse beam search<br/>(10 beams, 5 groups)"]
+    BEAM --> CAND["Up to 5 candidate captions"]
+    CAND --> RERANK["Five-signal reranking<br/>S = 0.2·S_base + 0.4·S_align + 0.4·S_belief<br/>+ 1·S_obj + 0.1·S_retr"]
+    EV -. "S_obj" .-> RERANK
+    RET -. "S_retr" .-> RERANK
+    RERANK --> OUT["Final caption"]
 ```
 
 The five reranking signals (each min-max normalised within one image's candidates):
