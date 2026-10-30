@@ -1,0 +1,7 @@
+uploads/*
+!uploads/.gitkeep
+__pycache__/
+*.pyc
+.env
+# Large model/retrieval files copied from demo/ and dataset/
+weights/

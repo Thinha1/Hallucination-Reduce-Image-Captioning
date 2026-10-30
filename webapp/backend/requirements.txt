@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+ultralytics
+transformers
+torch
+pillow
+numpy
+nltk
+httpx
