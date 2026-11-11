@@ -1,10 +1,14 @@
-# Image Captioning Research: Reducing Object Hallucination on MS COCO 2014 and Flickr30k
+# MEHC-Cap: Multi-Source Evidence-Guided Two-Stage Object Hallucination Control for Transformer-Based Image Captioning
 
 [Tiếng Việt](README.md) | English
 
-A research repository on image captioning. The current direction is reducing **object hallucination** (captions that mention objects
-that are not in the image) while keeping caption quality, on a small model (CLIP ViT-B/16 + Transformer decoder). The code is also the
-experimental part of the graduation thesis. It contains the training notebooks, the evaluation scripts and a demo web app.
+**Authors:** Phạm Nguyễn Thanh Huy, Đặng Anh Thịnh, Đỗ Võ Kim Nhi, Trần Thị Vân Anh, Đinh Thị Mận, Nguyễn Văn Thịnh\*
+
+\* Corresponding author
+
+Code for **MEHC-Cap** (Multi-Source Evidence-Guided Hallucination-Controlled Captioning), an image captioning model that reduces
+**object hallucination** (captions that mention objects that are not in the image) while keeping caption quality, on a small model
+(CLIP ViT-B/16 + Transformer decoder). It contains the training notebooks, the evaluation scripts and a demo web app.
 
 ## 1. Problem and idea
 
@@ -69,7 +73,7 @@ The learned blocking layer (notebook 03) was an early control experiment and is 
 
 ## 3. Results (Karpathy test sets, single seed)
 
-Configuration names list the components that are switched on, as in the thesis:
+Configuration names list the components that are switched on:
 
 | Code | Meaning |
 |---|---|
@@ -79,7 +83,7 @@ Configuration names list the components that are switched on, as in the thesis:
 | `LB(·)` | Logit blocking rule, with the evidence source in brackets: `Y` = YOLO-World, `R` = retrieved captions, `Y+R` = union of both |
 | `RR` | Five-signal reranker |
 
-The full proposed model is **`DL+CL + LB(Y+R) + RR`**. MS COCO: 5,000 test images, CHAIR computed on the 4,967 images that have object labels. CHs/CHi: CHAIRs/CHAIRi (%, lower is better).
+MEHC-Cap is the full configuration **`DL+CL + LB(Y+R) + RR`**. MS COCO: 5,000 test images, CHAIR computed on the 4,967 images that have object labels. CHs/CHi: CHAIRs/CHAIRi (%, lower is better).
 
 | Dataset | Configuration | B-4 | METEOR | ROUGE-L | CIDEr | SPICE | CHs | CHi |
 |---|---|---|---|---|---|---|---|---|
@@ -162,7 +166,7 @@ Shared modules in the `demo/` root: `local_captioner.py`, `generate.py`, `clipsc
 - Python 3.10, `pip install -r requirements.txt` (in the `demo/` root), PyTorch with CUDA, Java (for METEOR and SPICE).
 - Data lives in `../dataset/` (outside the repo): `dataset_coco.json` (Karpathy split), `instances_val2014.json`, `val2014/val2014/` (images), `retrieval_cache/` (caption store and neighbour indices), vocabulary `coco2014_karpathy_restval_dynlogits_contrastive_attnpool_vocab.json` (10,031 words).
 - Checkpoints (`*.pth`, about 500 MB each) go in the `demo/` root; the copies used by the demo are in `webapp/backend/weights/`. Training ran on Kaggle (T4), evaluation ran locally.
-- The constants in notebooks 01, 02, 04 and 05 are set to the thesis values (Table 3.2: 3-layer decoder, batch 64 for COCO). The originals in `research/notebooks/` carry different values (96 / 2 layers); the notebooks have not been re-run on Kaggle to confirm.
+- The constants in notebooks 01, 02, 04 and 05 are set to the reported configuration (3-layer decoder, batch 64 for COCO). The originals in `research/notebooks/` carry different values (96 / 2 layers); the notebooks have not been re-run on Kaggle to confirm.
 
 ## 6. Re-running the evaluation (from `demo/`)
 
@@ -206,4 +210,4 @@ Shared modules in the `demo/` root: `local_captioner.py`, `generate.py`, `clipsc
 
    Configuration names and meaning are listed at the top of `run_onoff_ablation.sh`. Keep at most 2 GPU processes at a time.
 
-Settings used in the thesis: YOLO-World threshold 0.25 (at most 20 objects) for the blocking rule and `S_belief`, 0.55 for the evidence set of `S_obj`, `K = 5`, `r = 3`, `δ = 3`, `J = 5` candidates, weights `w_base/w_align/w_belief/w_obj/w_retr = 0.2/0.4/0.4/1/0.1`, `ε = 10⁻⁶`.
+Final MEHC-Cap settings: YOLO-World threshold 0.25 (at most 20 objects) for the blocking rule and `S_belief`, 0.55 for the evidence set of `S_obj`, `K = 5`, `r = 3`, `δ = 3`, `J = 5` candidates, weights `w_base/w_align/w_belief/w_obj/w_retr = 0.2/0.4/0.4/1/0.1`, `ε = 10⁻⁶`.

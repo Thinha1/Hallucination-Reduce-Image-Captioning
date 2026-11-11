@@ -1,15 +1,19 @@
-# Image Captioning Research: giảm ảo giác đối tượng trên MS COCO 2014 và Flickr30k
+# MEHC-Cap: Kiểm soát ảo giác đối tượng hai giai đoạn dựa trên bằng chứng đa nguồn cho chú thích ảnh bằng Transformer
 
 Tiếng Việt | [English](README_EN.md)
 
-Repo nghiên cứu về chú thích ảnh (image captioning). Hướng hiện tại là giảm **ảo giác đối tượng** (câu mô tả nhắc đến vật thể không có
-trong ảnh) mà vẫn giữ chất lượng câu, trên một mô hình nhỏ (CLIP ViT-B/16 + bộ giải mã Transformer). Mã nguồn cũng là phần thực nghiệm
-của khóa luận tốt nghiệp. Gồm notebook huấn luyện, script đánh giá và ứng dụng demo.
+**Tác giả:** Phạm Nguyễn Thanh Huy, Đặng Anh Thịnh, Đỗ Võ Kim Nhi, Trần Thị Vân Anh, Đinh Thị Mận, Nguyễn Văn Thịnh\*
+
+\* Tác giả liên hệ (corresponding author)
+
+Mã nguồn của **MEHC-Cap** (Multi-Source Evidence-Guided Hallucination-Controlled Captioning), mô hình chú thích ảnh giảm
+**ảo giác đối tượng** (câu mô tả nhắc đến vật thể không có trong ảnh) mà vẫn giữ chất lượng câu, trên một mô hình nhỏ
+(CLIP ViT-B/16 + bộ giải mã Transformer). Gồm notebook huấn luyện, script đánh giá và ứng dụng demo.
 
 ## 1. Bài toán và ý tưởng
 
 Mô hình chú thích ảnh thường nhắc đến vật thể quen thuộc dù không có trong ảnh (ví dụ thấy bàn bếp thì viết có "dining table").
-Khóa luận đo ảo giác bằng **CHAIR** (CHAIRs: % câu có ảo giác, CHAIRi: % lần nhắc vật thể sai, trên 80 lớp COCO) và giữ chất lượng câu
+Ảo giác được đo bằng **CHAIR** (CHAIRs: % câu có ảo giác, CHAIRi: % lần nhắc vật thể sai, trên 80 lớp COCO) và giữ chất lượng câu
 bằng BLEU, METEOR, ROUGE-L, CIDEr, SPICE.
 
 Ý tưởng: kiểm soát ảo giác ở **ba giai đoạn** mà không huấn luyện lại bộ phát hiện.
@@ -68,7 +72,7 @@ Ngưỡng tin cậy của YOLO-World: luật chặn và `S_belief` dùng 0,25, r
 
 ## 3. Kết quả (tập kiểm tra Karpathy, một seed)
 
-Tên cấu hình ghép từ các thành phần được bật, giống trong khóa luận:
+Tên cấu hình ghép từ các thành phần được bật:
 
 | Mã | Nghĩa |
 |---|---|
@@ -78,7 +82,7 @@ Tên cấu hình ghép từ các thành phần được bật, giống trong kh�
 | `LB(·)` | Luật chặn logits, trong ngoặc là nguồn bằng chứng: `Y` = YOLO-World, `R` = câu truy hồi, `Y+R` = hợp hai nguồn |
 | `RR` | Bộ chọn lại câu năm tín hiệu |
 
-Mô hình đề xuất hoàn chỉnh là **`DL+CL + LB(Y+R) + RR`**. MS COCO: 5.000 ảnh kiểm tra, CHAIR tính trên 4.967 ảnh có nhãn vật thể. CHs/CHi: CHAIRs/CHAIRi (%, càng thấp càng tốt).
+MEHC-Cap là cấu hình đầy đủ **`DL+CL + LB(Y+R) + RR`**. MS COCO: 5.000 ảnh kiểm tra, CHAIR tính trên 4.967 ảnh có nhãn vật thể. CHs/CHi: CHAIRs/CHAIRi (%, càng thấp càng tốt).
 
 | Tập | Cấu hình | B-4 | METEOR | ROUGE-L | CIDEr | SPICE | CHs | CHi |
 |---|---|---|---|---|---|---|---|---|
@@ -160,7 +164,7 @@ Module dùng chung ở gốc `demo/`: `local_captioner.py`, `generate.py`, `clip
 - Python 3.10, `pip install -r requirements.txt` (ở gốc `demo/`), PyTorch có CUDA, Java (cho METEOR và SPICE).
 - Dữ liệu đặt ở `../dataset/` (ngoài repo): `dataset_coco.json` (Karpathy split), `instances_val2014.json`, `val2014/val2014/` (ảnh), `retrieval_cache/` (kho câu và chỉ số láng giềng), từ điển `coco2014_karpathy_restval_dynlogits_contrastive_attnpool_vocab.json` (10.031 từ).
 - Checkpoint (`*.pth`, khoảng 500 MB mỗi file) đặt ở gốc `demo/`; bản dùng cho demo nằm trong `webapp/backend/weights/`. Huấn luyện chạy trên Kaggle (T4), đánh giá chạy cục bộ.
-- Hằng số của notebook 01, 02, 04, 05 đã đặt theo Bảng 3.2 của khóa luận (decoder 3 lớp, batch 64 cho COCO). Các bản gốc ở `research/notebooks/` ghi giá trị khác (96 / 2 lớp); chưa chạy lại trên Kaggle để kiểm chứng.
+- Hằng số của notebook 01, 02, 04, 05 đã đặt theo cấu hình báo cáo (decoder 3 lớp, batch 64 cho COCO). Các bản gốc ở `research/notebooks/` ghi giá trị khác (96 / 2 lớp); chưa chạy lại trên Kaggle để kiểm chứng.
 
 ## 6. Chạy lại đánh giá (từ thư mục `demo/`)
 
@@ -204,4 +208,4 @@ Module dùng chung ở gốc `demo/`: `local_captioner.py`, `generate.py`, `clip
 
    Tên cấu hình và ý nghĩa nằm ở đầu `run_onoff_ablation.sh`. Giữ tối đa 2 tiến trình GPU cùng lúc.
 
-Cấu hình dùng trong khóa luận: YOLO-World ngưỡng 0,25 (tối đa 20 vật thể) cho luật chặn và `S_belief`, 0,55 cho tập bằng chứng của `S_obj`, `K = 5`, `r = 3`, `δ = 3`, `J = 5` ứng viên, trọng số `w_base/w_align/w_belief/w_obj/w_retr = 0,2/0,4/0,4/1/0,1`, `ε = 10⁻⁶`.
+Cấu hình cuối của MEHC-Cap: YOLO-World ngưỡng 0,25 (tối đa 20 vật thể) cho luật chặn và `S_belief`, 0,55 cho tập bằng chứng của `S_obj`, `K = 5`, `r = 3`, `δ = 3`, `J = 5` ứng viên, trọng số `w_base/w_align/w_belief/w_obj/w_retr = 0,2/0,4/0,4/1/0,1`, `ε = 10⁻⁶`.
