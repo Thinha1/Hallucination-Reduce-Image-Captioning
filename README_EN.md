@@ -49,7 +49,7 @@ flowchart TD
     BLOCK --> BEAM["Beam search (3) + diverse beam search<br/>(10 beams, 5 groups)"]
     BEAM --> CAND["Up to 5 candidate captions"]
     CAND --> RERANK["Five-signal reranking<br/>S = 0.2·S_base + 0.4·S_align + 0.4·S_belief<br/>+ 1·S_obj + 0.1·S_retr"]
-    EV -. "S_obj" .-> RERANK
+    EV -. "S_obj (YOLO-World threshold 0.55)" .-> RERANK
     RET -. "S_retr" .-> RERANK
     RERANK --> OUT["Final caption"]
 ```
@@ -64,66 +64,73 @@ The five reranking signals (each min-max normalised within one image's candidate
 | `S_obj` | minus the number of object classes in the caption that lie outside `E(I)` |
 | `S_retr` | closeness of the candidate to the retrieved captions |
 
-Control configuration: a **learned blocking layer** (a table of blocking strengths `δ(n, y)` learned in training, multiplied by μ = 6 at inference).
-The final proposed model uses the **fixed** blocking rule.
+YOLO-World confidence threshold: the blocking rule and `S_belief` use 0.25, and only the evidence set of `S_obj` uses 0.55 (chosen on 1,000 validation images).
+The learned blocking layer (notebook 03) was an early control experiment and is not part of the final results.
 
 ## 3. Results (Karpathy test sets, single seed)
 
-MS COCO: 5,000 test images, CHAIR computed on the 4,967 images that have object labels. "Before" is the first beam-search caption,
-"5 signals" is after reranking. CHs/CHi: CHAIRs/CHAIRi (%, lower is better).
+Configuration names list the components that are switched on, as in the thesis:
+
+| Code | Meaning |
+|---|---|
+| `CE` | Baseline, trained with cross-entropy only |
+| `DL` / `CL` | Generator with Dynamic Logits only / contrastive learning only |
+| `DL+CL` | Proposed generator, with both |
+| `LB(·)` | Logit blocking rule, with the evidence source in brackets: `Y` = YOLO-World, `R` = retrieved captions, `Y+R` = union of both |
+| `RR` | Five-signal reranker |
+
+The full proposed model is **`DL+CL + LB(Y+R) + RR`**. MS COCO: 5,000 test images, CHAIR computed on the 4,967 images that have object labels. CHs/CHi: CHAIRs/CHAIRi (%, lower is better).
 
 | Dataset | Configuration | B-4 | METEOR | ROUGE-L | CIDEr | SPICE | CHs | CHi |
 |---|---|---|---|---|---|---|---|---|
-| MS COCO | Baseline, before | 36.71 | 28.70 | 57.50 | 119.90 | 21.69 | 7.01 | 4.88 |
-| MS COCO | Baseline + reranking | 35.82 | 28.51 | 56.52 | 119.87 | 21.77 | 3.10 | 2.20 |
-| MS COCO | Proposed, before | 36.88 | 28.55 | 57.61 | 119.67 | 21.59 | 3.46 | 2.49 |
-| MS COCO | **Proposed, 5 signals** | 36.27 | 28.50 | 56.87 | **120.49** | 21.84 | **2.44** | **1.76** |
-| Flickr30k | Baseline, before | 32.81 | 24.15 | 52.46 | 73.93 | 17.86 | 6.48 | 4.94 |
-| Flickr30k | Baseline + reranking | 31.59 | 24.27 | 51.99 | 74.33 | 18.03 | 4.26 | 3.52 |
-| Flickr30k | Proposed, before | 30.21 | 23.85 | 51.97 | 68.06 | 17.73 | 3.24 | 2.62 |
-| Flickr30k | **Proposed, 5 signals** | 31.09 | 23.85 | 52.01 | 71.84 | 18.11 | 2.74 | 2.33 |
+| MS COCO | `CE` | 36.71 | 28.70 | 57.50 | 119.90 | 21.69 | 7.01 | 4.88 |
+| MS COCO | `CE + RR` | 35.58 | 28.35 | 56.31 | 119.26 | 21.66 | 2.56 | 1.85 |
+| MS COCO | `DL+CL + LB(Y+R)` | 36.88 | 28.55 | 57.61 | 119.67 | 21.59 | 3.46 | 2.49 |
+| MS COCO | **`DL+CL + LB(Y+R) + RR`** | 35.98 | 28.36 | 56.61 | 119.72 | 21.73 | **1.71** | **1.24** |
+| Flickr30k | `CE` | 32.81 | 24.15 | 52.46 | 73.93 | 17.86 | 6.48 | 4.94 |
+| Flickr30k | `CE + RR` | 31.71 | 24.22 | 51.97 | 74.20 | 18.00 | 3.95 | 3.24 |
+| Flickr30k | `DL+CL + LB(Y+R)` | 30.21 | 23.85 | 51.97 | 68.06 | 17.73 | 3.24 | 2.62 |
+| Flickr30k | **`DL+CL + LB(Y+R) + RR`** | 31.02 | 23.88 | 52.02 | 71.61 | 18.11 | **2.23** | **1.96** |
 
-- On MS COCO the proposed model lowers CHAIRs from 7.01 to 2.44 (-65.2%) and CHAIRi from 4.88 to 1.76, with CIDEr 0.59 points higher.
-- On Flickr30k CHAIR also drops, but CIDEr is 2.09 points below the baseline: there, less hallucination costs some caption quality.
-- Captions do not get shorter and do not mention noticeably fewer objects: 1.37 COCO objects per caption (proposed) versus 1.46 (baseline), and recall against objects named by the reference captions is 70.0% versus 71.1%.
+- On MS COCO the proposed model lowers CHAIRs from 7.01 to 1.71 (-75.6%) and CHAIRi from 4.88 to 1.24 (-74.6%), with CIDEr 0.18 points below the baseline and SPICE almost unchanged (21.73 vs 21.69).
+- On Flickr30k CHAIRs drops from 6.48 to 2.23, but CIDEr is 2.32 points below the baseline: there, less hallucination costs some caption quality.
+- The model does not lower CHAIR by avoiding objects: 1.33 COCO object classes per caption (proposed) versus 1.46 (baseline) and 1.36 (reference captions), 8.36% of captions mention no COCO object versus 5.96% (references 10.88%), and recall against objects named by the reference captions is 68.96% versus 71.05%.
+- Per image against `CE`: 293 images lose their hallucination, 30 gain a new one (mostly from YOLO-World false detections), 55 are wrong in both.
 
-**Fixed blocking rule vs learned blocking layer** (MS COCO test):
+**Contribution of each reranking signal** (MS COCO test, generator `DL+CL + LB(Y+R)`):
 
-| Configuration | Position | CIDEr | CHs | CHi |
+| Configuration | B-4 | CIDEr | CHs | CHi |
 |---|---|---|---|---|
-| Baseline, no blocking | before / 5 signals | 119.90 / 119.87 | 7.01 / 3.10 | 4.88 / 2.20 |
-| Learned blocking layer, μ = 6 | before / 5 signals | 118.27 / 119.54 | 4.37 / 3.04 | 3.08 / 2.20 |
-| Fixed blocking rule, δ = 3 | before / 5 signals | 119.67 / 120.49 | 3.46 / 2.44 | 2.49 / 1.76 |
+| Before reranking | 36.88 | 119.67 | 3.46 | 2.49 |
+| Five signals (r = 3) | 35.98 | 119.72 | 1.71 | 1.24 |
+| Without `S_obj` | 36.31 | 120.87 | 2.60 | 1.86 |
+| Without `S_retr` | 35.78 | 118.66 | 1.71 | 1.25 |
+| Five signals, r = 1 | 36.08 | 120.23 | 1.97 | 1.42 |
 
-The two configurations also differ in how they are trained, so the gap cannot be attributed to the blocking mechanism alone.
-
-**Contribution of each reranking signal** (MS COCO test, proposed model):
-
-| Configuration | CIDEr | CHs | CHi |
-|---|---|---|---|
-| Before reranking | 119.67 | 3.46 | 2.49 |
-| Five signals (r = 3) | 120.49 | 2.44 | 1.76 |
-| Without `S_obj` | 120.87 | 2.60 | 1.86 |
-| Without `S_retr` | 119.34 | 2.46 | 1.78 |
-| Five signals, r = 1 | 120.68 | 2.48 | 1.78 |
+`S_obj` reduces hallucination (removing it raises CHAIRs to 2.60), while `S_retr` keeps caption quality (removing it lowers CIDEr by 1.06 points with CHAIRs unchanged).
 
 **Inference cost (per image, RTX 3050 Laptop):** 1,855 ms for the full pipeline versus 357 ms for the baseline with one beam-search caption. Retrieval adds 52 ms, the two retrieval-based signals 38 ms, YOLO-World 111 ms, the reranker 197 ms.
 
-**On/off ablation (MS COCO, 5,000 images, one seed).** "Before"/"after" means before/after the five-signal reranker. CHAIRs and CHAIRi (%) are computed on 4,967 images. The evidence source feeds both the blocking rule and the `S_obj` signal, and the two no-blocking rows use the union of both sources. δ = 3 was chosen on the validation split with the union source and kept for the other sources. SPICE was not measured.
+**On/off ablation (MS COCO, 5,000 images, one seed).** "Before"/"after" means before/after adding `RR`. CHAIRs and CHAIRi (%) are computed on 4,967 images, and recall is the % of objects named by the reference captions that the generated caption mentions. The evidence source feeds both the blocking rule and the `S_obj` signal, and the no-blocking rows use the union of both sources. δ = 3 was chosen on the validation split with the union source and kept for the other sources. SPICE was not measured.
 
-| Configuration | CHAIRs before | CIDEr before | CHAIRs after | CHAIRi after | CIDEr after | Recall after |
-|---|---|---|---|---|---|---|
-| Baseline generator, no blocking | 7.01 | 119.90 | 3.10 | 2.20 | 119.87 | 70.3 |
-| Baseline generator, blocking (YOLO-World + retrieval) | 3.81 | 119.14 | 2.76 | 1.99 | 119.78 | 69.9 |
-| Proposed generator, no blocking | 6.68 | 120.79 | 3.06 | 2.17 | 121.26 | 70.4 |
-| Proposed generator, blocking (YOLO-World only) | 2.90 | 118.51 | 2.21 | 1.66 | 118.66 | 68.5 |
-| Proposed generator, blocking (retrieval only) | 2.64 | 114.83 | 1.25 | 1.07 | 112.61 | 59.6 |
-| **Proposed generator, blocking (YOLO-World + retrieval)** | **3.46** | **119.67** | **2.44** | **1.76** | **120.49** | **70.0** |
+| # | Configuration | CHAIRs before | CIDEr before | CHAIRs after | CHAIRi after | CIDEr after | Recall after |
+|---|---|---|---|---|---|---|---|
+| C1 | `CE` | 7.01 | 119.90 | 2.56 | 1.85 | 119.26 | 69.4 |
+| C2 | `CE + LB(Y+R)` | 3.81 | 119.14 | 2.03 | 1.49 | 119.08 | 68.9 |
+| C3 | `DL` | 7.05 | 119.18 | 3.10 | 2.20 | 119.07 | 70.0 |
+| C4 | `DL + LB(Y+R)` | 3.24 | 118.79 | 2.11 | 1.51 | 119.44 | 69.5 |
+| C5 | `CL` | 7.15 | 120.43 | 2.88 | 2.03 | 119.56 | 69.9 |
+| C6 | `CL + LB(Y+R)` | 3.28 | 120.08 | 1.89 | 1.36 | 120.22 | 69.4 |
+| C7 | `DL+CL` | 6.68 | 120.79 | 2.56 | 1.83 | 120.37 | 69.4 |
+| C8 | `DL+CL + LB(Y)` | 2.90 | 118.51 | 1.27 | 0.95 | 117.01 | 66.7 |
+| C9 | `DL+CL + LB(R)` | 2.64 | 114.83 | 1.25 | 1.07 | 112.61 | 59.6 |
+| **C10** | **`DL+CL + LB(Y+R)`** | **3.46** | **119.67** | **1.71** | **1.24** | **119.72** | **69.0** |
 
 Observations:
-- Logit blocking removes the most hallucination at generation time (CHAIRs 6.68 to 3.46 for the proposed generator, 7.01 to 3.81 for the baseline).
-- Dynamic Logits and contrastive training reduce hallucination only slightly (without blocking, CHAIRs 6.68 vs 7.01 before and 3.06 vs 3.10 after reranking) but give higher CIDEr and recall. With blocking on for both, CHAIRs after reranking is 2.44 vs 2.76.
-- Retrieval-only evidence gives the lowest CHAIRs but CIDEr drops by 7.88 points and recall falls to 59.6%, i.e. the model simply mentions far fewer objects. The union source gives the best CIDEr and recall, so it is the one used.
+- Logit blocking removes the most hallucination at generation time: CHAIRs 6.68 (C7) to 3.46 (C10) for the proposed generator, 7.01 (C1) to 3.81 (C2) for the baseline.
+- Without blocking, the proposed generator reduces hallucination only slightly (CHAIRs before 6.68 vs 7.01, equal at 2.56 after `RR`) but gives higher CIDEr (120.37 vs 119.26). With blocking on for both, C10 reaches CHAIRs 1.71 versus 2.03 for C2, with CIDEr 119.72 versus 119.08.
+- Each training component alone is not enough: with blocking, Dynamic Logits only (C4) gives CHAIRs 2.11 and contrastive only (C6) gives 1.89, both above the combination (C10, 1.71).
+- YOLO-World-only (C8) or retrieval-only (C9) evidence gives lower CHAIRs, but CIDEr drops by 2.71 and 7.11 points and recall falls to 66.7% and 59.6%, i.e. the model mentions far fewer objects. The union source balances hallucination and caption quality, so it is the one used.
 
 Limitations: each configuration was run once (one seed); the proposed model was trained for 48 epochs and the baseline for 40; CHAIR only covers the 80 COCO classes, not attributes, counts or relations;
 Flickr30k has no COCO object labels, so CHAIR there relies on labels extracted from the reference captions.
@@ -187,6 +194,8 @@ Shared modules in the `demo/` root: `local_captioner.py`, `generate.py`, `clipsc
 
    The key `five_score_3of5` in the output is the final configuration; `before_rerank` is the first beam-search caption.
 
+   The 0.55 threshold for `S_obj` only changes the reranking step, so it is applied by re-scoring the candidates already generated, with no regeneration: `research/scripts/rerank_only_test55.py` (proposed model) and `research/scripts/rerank_c55_rest.py <config name>` (on/off configurations) at the `demo/` root, results in `results/confsweep/rr55/`.
+
 5. **On/off experiments** (two parallel GPU workers, each running its 1,250-image shards in turn and skipping finished ones):
 
    ```
@@ -197,4 +206,4 @@ Shared modules in the `demo/` root: `local_captioner.py`, `generate.py`, `clipsc
 
    Configuration names and meaning are listed at the top of `run_onoff_ablation.sh`. Keep at most 2 GPU processes at a time.
 
-Settings used in the thesis: YOLO-World threshold 0.25 (at most 20 objects), `K = 5`, `r = 3`, `δ = 3`, `J = 5` candidates, weights `w_base/w_align/w_belief/w_obj/w_retr = 0.2/0.4/0.4/1/0.1`, `ε = 10⁻⁶`.
+Settings used in the thesis: YOLO-World threshold 0.25 (at most 20 objects) for the blocking rule and `S_belief`, 0.55 for the evidence set of `S_obj`, `K = 5`, `r = 3`, `δ = 3`, `J = 5` candidates, weights `w_base/w_align/w_belief/w_obj/w_retr = 0.2/0.4/0.4/1/0.1`, `ε = 10⁻⁶`.

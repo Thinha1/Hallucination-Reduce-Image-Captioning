@@ -49,7 +49,7 @@ flowchart TD
     BLOCK --> BEAM["Beam search (3) + diverse beam search<br/>(10 chùm, 5 nhóm)"]
     BEAM --> CAND["Tối đa 5 câu ứng viên"]
     CAND --> RERANK["Chọn lại câu năm tín hiệu<br/>S = 0,2·S_base + 0,4·S_align + 0,4·S_belief<br/>+ 1·S_obj + 0,1·S_retr"]
-    EV -. "S_obj" .-> RERANK
+    EV -. "S_obj (YOLO-World ngưỡng 0,55)" .-> RERANK
     RET -. "S_retr" .-> RERANK
     RERANK --> OUT["Câu cuối"]
 ```
@@ -64,64 +64,72 @@ Năm tín hiệu chọn lại câu (mỗi tín hiệu chuẩn hóa min-max trong
 | `S_obj` | trừ số lớp vật thể trong câu nằm ngoài `E(I)` |
 | `S_retr` | độ gần câu ứng viên với các câu truy hồi |
 
-Cấu hình đối chứng: **lớp chặn học được** (bảng mức chặn `δ(n, y)` được học khi huấn luyện, nhân hệ số μ = 6 khi suy luận). Mô hình đề xuất cuối dùng luật chặn **cố định**.
+Ngưỡng tin cậy của YOLO-World: luật chặn và `S_belief` dùng 0,25, riêng tập bằng chứng của `S_obj` dùng 0,55 (chọn trên 1.000 ảnh val). Lớp chặn học được (notebook 03) chỉ là thí nghiệm đối chứng ban đầu, không có trong kết quả cuối.
 
 ## 3. Kết quả (tập kiểm tra Karpathy, một seed)
 
-MS COCO: 5.000 ảnh kiểm tra, CHAIR tính trên 4.967 ảnh có nhãn vật thể. "Trước" là câu đầu của beam search, "5 tín hiệu" là sau khi chọn lại câu. CHs/CHi: CHAIRs/CHAIRi (%, càng thấp càng tốt).
+Tên cấu hình ghép từ các thành phần được bật, giống trong khóa luận:
+
+| Mã | Nghĩa |
+|---|---|
+| `CE` | Mô hình cơ sở, chỉ huấn luyện bằng cross-entropy |
+| `DL` / `CL` | Bộ sinh câu chỉ có Dynamic Logits / chỉ có học tương phản |
+| `DL+CL` | Bộ sinh câu đề xuất, có cả hai |
+| `LB(·)` | Luật chặn logits, trong ngoặc là nguồn bằng chứng: `Y` = YOLO-World, `R` = câu truy hồi, `Y+R` = hợp hai nguồn |
+| `RR` | Bộ chọn lại câu năm tín hiệu |
+
+Mô hình đề xuất hoàn chỉnh là **`DL+CL + LB(Y+R) + RR`**. MS COCO: 5.000 ảnh kiểm tra, CHAIR tính trên 4.967 ảnh có nhãn vật thể. CHs/CHi: CHAIRs/CHAIRi (%, càng thấp càng tốt).
 
 | Tập | Cấu hình | B-4 | METEOR | ROUGE-L | CIDEr | SPICE | CHs | CHi |
 |---|---|---|---|---|---|---|---|---|
-| MS COCO | Cơ sở, trước | 36,71 | 28,70 | 57,50 | 119,90 | 21,69 | 7,01 | 4,88 |
-| MS COCO | Cơ sở + chọn lại câu | 35,82 | 28,51 | 56,52 | 119,87 | 21,77 | 3,10 | 2,20 |
-| MS COCO | Đề xuất, trước | 36,88 | 28,55 | 57,61 | 119,67 | 21,59 | 3,46 | 2,49 |
-| MS COCO | **Đề xuất, 5 tín hiệu** | 36,27 | 28,50 | 56,87 | **120,49** | 21,84 | **2,44** | **1,76** |
-| Flickr30k | Cơ sở, trước | 32,81 | 24,15 | 52,46 | 73,93 | 17,86 | 6,48 | 4,94 |
-| Flickr30k | Cơ sở + chọn lại câu | 31,59 | 24,27 | 51,99 | 74,33 | 18,03 | 4,26 | 3,52 |
-| Flickr30k | Đề xuất, trước | 30,21 | 23,85 | 51,97 | 68,06 | 17,73 | 3,24 | 2,62 |
-| Flickr30k | **Đề xuất, 5 tín hiệu** | 31,09 | 23,85 | 52,01 | 71,84 | 18,11 | 2,74 | 2,33 |
+| MS COCO | `CE` | 36,71 | 28,70 | 57,50 | 119,90 | 21,69 | 7,01 | 4,88 |
+| MS COCO | `CE + RR` | 35,58 | 28,35 | 56,31 | 119,26 | 21,66 | 2,56 | 1,85 |
+| MS COCO | `DL+CL + LB(Y+R)` | 36,88 | 28,55 | 57,61 | 119,67 | 21,59 | 3,46 | 2,49 |
+| MS COCO | **`DL+CL + LB(Y+R) + RR`** | 35,98 | 28,36 | 56,61 | 119,72 | 21,73 | **1,71** | **1,24** |
+| Flickr30k | `CE` | 32,81 | 24,15 | 52,46 | 73,93 | 17,86 | 6,48 | 4,94 |
+| Flickr30k | `CE + RR` | 31,71 | 24,22 | 51,97 | 74,20 | 18,00 | 3,95 | 3,24 |
+| Flickr30k | `DL+CL + LB(Y+R)` | 30,21 | 23,85 | 51,97 | 68,06 | 17,73 | 3,24 | 2,62 |
+| Flickr30k | **`DL+CL + LB(Y+R) + RR`** | 31,02 | 23,88 | 52,02 | 71,61 | 18,11 | **2,23** | **1,96** |
 
-- Trên MS COCO, mô hình đề xuất giảm CHAIRs từ 7,01 xuống 2,44 (-65,2%) và CHAIRi từ 4,88 xuống 1,76, CIDEr cao hơn 0,59 điểm.
-- Trên Flickr30k, CHAIR cũng giảm nhưng CIDEr thấp hơn cơ sở 2,09 điểm: ở đó giảm ảo giác đổi lấy một phần chất lượng câu.
-- Câu không ngắn đi và không nhắc ít vật thể hơn đáng kể: số vật thể COCO nhắc mỗi câu là 1,37 (đề xuất) so với 1,46 (cơ sở), recall theo vật thể có trong câu tham chiếu 70,0% so với 71,1%.
+- Trên MS COCO, mô hình đề xuất giảm CHAIRs từ 7,01 xuống 1,71 (-75,6%) và CHAIRi từ 4,88 xuống 1,24 (-74,6%), CIDEr thấp hơn cơ sở 0,18 điểm, SPICE gần như không đổi (21,73 so với 21,69).
+- Trên Flickr30k, CHAIRs giảm từ 6,48 xuống 2,23 nhưng CIDEr thấp hơn cơ sở 2,32 điểm: ở đó giảm ảo giác đổi lấy một phần chất lượng câu.
+- Mô hình không giảm CHAIR bằng cách né nhắc vật thể: số lớp vật thể COCO mỗi câu là 1,33 (đề xuất) so với 1,46 (cơ sở) và 1,36 (câu tham chiếu), tỉ lệ câu không nhắc vật thể nào là 8,36% so với 5,96% (câu tham chiếu 10,88%), recall theo vật thể trong câu tham chiếu 68,96% so với 71,05%.
+- So từng ảnh với `CE`: 293 ảnh hết ảo giác, 30 ảnh phát sinh ảo giác mới (phần lớn do YOLO-World nhận nhầm), 55 ảnh cả hai đều sai.
 
-**Luật chặn cố định so với lớp chặn học được** (MS COCO test):
+**Đóng góp của từng tín hiệu chọn lại câu** (MS COCO test, bộ sinh `DL+CL + LB(Y+R)`):
 
-| Cấu hình | Vị trí | CIDEr | CHs | CHi |
+| Cấu hình | B-4 | CIDEr | CHs | CHi |
 |---|---|---|---|---|
-| Cơ sở, không chặn | trước / 5 tín hiệu | 119,90 / 119,87 | 7,01 / 3,10 | 4,88 / 2,20 |
-| Lớp chặn học được, μ = 6 | trước / 5 tín hiệu | 118,27 / 119,54 | 4,37 / 3,04 | 3,08 / 2,20 |
-| Luật chặn cố định, δ = 3 | trước / 5 tín hiệu | 119,67 / 120,49 | 3,46 / 2,44 | 2,49 / 1,76 |
+| Trước khi chọn lại câu | 36,88 | 119,67 | 3,46 | 2,49 |
+| Năm tín hiệu (r = 3) | 35,98 | 119,72 | 1,71 | 1,24 |
+| Bỏ `S_obj` | 36,31 | 120,87 | 2,60 | 1,86 |
+| Bỏ `S_retr` | 35,78 | 118,66 | 1,71 | 1,25 |
+| Năm tín hiệu, r = 1 | 36,08 | 120,23 | 1,97 | 1,42 |
 
-Hai cấu hình khác nhau cả cách huấn luyện, nên chênh lệch không quy riêng cho cách chặn được.
-
-**Đóng góp của từng tín hiệu chọn lại câu** (MS COCO test, mô hình đề xuất):
-
-| Cấu hình | CIDEr | CHs | CHi |
-|---|---|---|---|
-| Trước khi chọn lại câu | 119,67 | 3,46 | 2,49 |
-| Năm tín hiệu (r = 3) | 120,49 | 2,44 | 1,76 |
-| Bỏ `S_obj` | 120,87 | 2,60 | 1,86 |
-| Bỏ `S_retr` | 119,34 | 2,46 | 1,78 |
-| Năm tín hiệu, r = 1 | 120,68 | 2,48 | 1,78 |
+`S_obj` giảm ảo giác (bỏ đi thì CHAIRs tăng lên 2,60), còn `S_retr` giữ chất lượng câu (bỏ đi thì CIDEr giảm 1,06 điểm, CHAIRs không đổi).
 
 **Chi phí suy luận (mỗi ảnh, RTX 3050 Laptop):** toàn quy trình 1.855 ms, mô hình cơ sở một câu beam search 357 ms. Truy hồi thêm 52 ms, hai tín hiệu dựa trên câu truy hồi thêm 38 ms, YOLO-World 111 ms, bộ chọn lại câu 197 ms.
 
-**Bật/tắt từng thành phần (MS COCO, 5.000 ảnh, một seed).** "Trước"/"sau" là trước/sau khi chọn lại câu bằng bộ năm tín hiệu. CHAIRs, CHAIRi (%) tính trên 4.967 ảnh. Nguồn bằng chứng dùng cho cả luật chặn và tín hiệu `S_obj`, hai hàng không chặn dùng hợp hai nguồn. δ = 3 chọn trên tập kiểm định với nguồn hợp, giữ nguyên cho các nguồn còn lại. Không đo SPICE.
+**Bật/tắt từng thành phần (MS COCO, 5.000 ảnh, một seed).** "Trước"/"sau" là trước/sau khi thêm `RR`. CHAIRs, CHAIRi (%) tính trên 4.967 ảnh, recall là % vật thể trong câu tham chiếu được câu sinh nhắc tới. Nguồn bằng chứng dùng cho cả luật chặn và tín hiệu `S_obj`, các hàng không chặn dùng hợp hai nguồn. δ = 3 chọn trên tập kiểm định với nguồn hợp, giữ nguyên cho các nguồn còn lại. Không đo SPICE.
 
-| Cấu hình | CHAIRs trước | CIDEr trước | CHAIRs sau | CHAIRi sau | CIDEr sau | Recall sau |
-|---|---|---|---|---|---|---|
-| Bộ sinh cơ sở, không chặn | 7,01 | 119,90 | 3,10 | 2,20 | 119,87 | 70,3 |
-| Bộ sinh cơ sở, chặn (YOLO-World + truy hồi) | 3,81 | 119,14 | 2,76 | 1,99 | 119,78 | 69,9 |
-| Bộ sinh đề xuất, không chặn | 6,68 | 120,79 | 3,06 | 2,17 | 121,26 | 70,4 |
-| Bộ sinh đề xuất, chặn (chỉ YOLO-World) | 2,90 | 118,51 | 2,21 | 1,66 | 118,66 | 68,5 |
-| Bộ sinh đề xuất, chặn (chỉ truy hồi) | 2,64 | 114,83 | 1,25 | 1,07 | 112,61 | 59,6 |
-| **Bộ sinh đề xuất, chặn (YOLO-World + truy hồi)** | **3,46** | **119,67** | **2,44** | **1,76** | **120,49** | **70,0** |
+| # | Cấu hình | CHAIRs trước | CIDEr trước | CHAIRs sau | CHAIRi sau | CIDEr sau | Recall sau |
+|---|---|---|---|---|---|---|---|
+| C1 | `CE` | 7,01 | 119,90 | 2,56 | 1,85 | 119,26 | 69,4 |
+| C2 | `CE + LB(Y+R)` | 3,81 | 119,14 | 2,03 | 1,49 | 119,08 | 68,9 |
+| C3 | `DL` | 7,05 | 119,18 | 3,10 | 2,20 | 119,07 | 70,0 |
+| C4 | `DL + LB(Y+R)` | 3,24 | 118,79 | 2,11 | 1,51 | 119,44 | 69,5 |
+| C5 | `CL` | 7,15 | 120,43 | 2,88 | 2,03 | 119,56 | 69,9 |
+| C6 | `CL + LB(Y+R)` | 3,28 | 120,08 | 1,89 | 1,36 | 120,22 | 69,4 |
+| C7 | `DL+CL` | 6,68 | 120,79 | 2,56 | 1,83 | 120,37 | 69,4 |
+| C8 | `DL+CL + LB(Y)` | 2,90 | 118,51 | 1,27 | 0,95 | 117,01 | 66,7 |
+| C9 | `DL+CL + LB(R)` | 2,64 | 114,83 | 1,25 | 1,07 | 112,61 | 59,6 |
+| **C10** | **`DL+CL + LB(Y+R)`** | **3,46** | **119,67** | **1,71** | **1,24** | **119,72** | **69,0** |
 
 Nhận xét:
-- Luật chặn là thành phần giảm CHAIRs nhiều nhất ở bước sinh câu (6,68 xuống 3,46 với bộ sinh đề xuất, 7,01 xuống 3,81 với bộ sinh cơ sở).
-- Dynamic Logits và học tương phản chỉ giảm ảo giác ở mức nhỏ (khi không chặn, CHAIRs 6,68 so với 7,01 trước và 3,06 so với 3,10 sau khi chọn lại câu) nhưng cho CIDEr và recall cao hơn. Khi cả hai bật luật chặn, CHAIRs sau chọn lại câu là 2,44 so với 2,76.
-- Chỉ dùng câu truy hồi cho CHAIRs thấp nhất nhưng CIDEr giảm 7,88 điểm và recall chỉ 59,6%, tức mô hình nhắc ít vật thể hơn hẳn. Nguồn hợp cho CIDEr và recall cao nhất, nên được chọn.
+- Luật chặn là thành phần giảm CHAIRs nhiều nhất ở bước sinh câu: 6,68 (C7) xuống 3,46 (C10) với bộ sinh đề xuất, 7,01 (C1) xuống 3,81 (C2) với bộ sinh cơ sở.
+- Khi không chặn, bộ sinh đề xuất giảm ảo giác ít (CHAIRs trước 6,68 so với 7,01, sau `RR` bằng nhau ở 2,56) nhưng CIDEr cao hơn (120,37 so với 119,26). Khi cùng bật luật chặn, C10 có CHAIRs 1,71 so với 2,03 của C2 và CIDEr 119,72 so với 119,08.
+- Từng thành phần huấn luyện đứng riêng chưa đủ: với luật chặn, chỉ Dynamic Logits (C4) cho CHAIRs 2,11 và chỉ học tương phản (C6) cho 1,89, đều cao hơn khi kết hợp (C10, 1,71).
+- Chỉ dùng YOLO-World (C8) hoặc chỉ câu truy hồi (C9) cho CHAIRs thấp hơn nhưng CIDEr giảm 2,71 và 7,11 điểm, recall chỉ 66,7% và 59,6%, tức mô hình nhắc ít vật thể hơn hẳn. Nguồn hợp cân bằng giữa ảo giác và chất lượng câu nên được chọn.
 
 Giới hạn: mỗi cấu hình chỉ có một lần chạy (một seed); mô hình đề xuất huấn luyện 48 epoch còn mô hình cơ sở 40 epoch; CHAIR chỉ đo 80 lớp COCO, không đo thuộc tính, số lượng, quan hệ; Flickr30k không có nhãn vật thể COCO nên CHAIR ở đó dựa trên nhãn rút từ câu tham chiếu.
 
@@ -184,6 +192,8 @@ Module dùng chung ở gốc `demo/`: `local_captioner.py`, `generate.py`, `clip
 
    Khóa `five_score_3of5` trong file kết quả là cấu hình cuối; `before_rerank` là câu đầu của beam search.
 
+   Ngưỡng 0,55 cho `S_obj` chỉ đổi bước chọn lại câu nên được áp bằng cách chấm lại các câu ứng viên đã sinh, không sinh lại: `research/scripts/rerank_only_test55.py` (mô hình đề xuất) và `research/scripts/rerank_c55_rest.py <tên cấu hình>` (các cấu hình bật/tắt) ở gốc `demo/`, kết quả trong `results/confsweep/rr55/`.
+
 5. **Thí nghiệm bật/tắt** (hai luồng GPU song song, mỗi luồng chạy lần lượt các đoạn 1.250 ảnh, bỏ qua đoạn đã có):
 
    ```
@@ -194,4 +204,4 @@ Module dùng chung ở gốc `demo/`: `local_captioner.py`, `generate.py`, `clip
 
    Tên cấu hình và ý nghĩa nằm ở đầu `run_onoff_ablation.sh`. Giữ tối đa 2 tiến trình GPU cùng lúc.
 
-Cấu hình dùng trong khóa luận: YOLO-World ngưỡng 0,25 (tối đa 20 vật thể), `K = 5`, `r = 3`, `δ = 3`, `J = 5` ứng viên, trọng số `w_base/w_align/w_belief/w_obj/w_retr = 0,2/0,4/0,4/1/0,1`, `ε = 10⁻⁶`.
+Cấu hình dùng trong khóa luận: YOLO-World ngưỡng 0,25 (tối đa 20 vật thể) cho luật chặn và `S_belief`, 0,55 cho tập bằng chứng của `S_obj`, `K = 5`, `r = 3`, `δ = 3`, `J = 5` ứng viên, trọng số `w_base/w_align/w_belief/w_obj/w_retr = 0,2/0,4/0,4/1/0,1`, `ε = 10⁻⁶`.
