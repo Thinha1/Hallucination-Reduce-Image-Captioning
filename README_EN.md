@@ -1,10 +1,10 @@
-# Reducing Object Hallucination in Image Captioning (MS COCO 2014, Flickr30k)
+# Image Captioning Research: Reducing Object Hallucination on MS COCO 2014 and Flickr30k
 
 [Tiếng Việt](README.md) | English
 
-This folder collects the code of the graduation thesis: a small image captioning model (CLIP ViT-B/16 + Transformer
-decoder) with mechanisms that reduce **object hallucination** (captions that mention objects that are not in the image) while keeping caption
-quality. It contains the training notebooks, the evaluation scripts and a demo web app.
+A research repository on image captioning. The current direction is reducing **object hallucination** (captions that mention objects
+that are not in the image) while keeping caption quality, on a small model (CLIP ViT-B/16 + Transformer decoder). The code is also the
+experimental part of the graduation thesis. It contains the training notebooks, the evaluation scripts and a demo web app.
 
 ## 1. Problem and idea
 
@@ -76,16 +76,16 @@ MS COCO: 5,000 test images, CHAIR computed on the 4,967 images that have object 
 |---|---|---|---|---|---|---|---|---|
 | MS COCO | Baseline, before | 36.71 | 28.70 | 57.50 | 119.90 | 21.69 | 7.01 | 4.88 |
 | MS COCO | Baseline + reranking | 35.82 | 28.51 | 56.52 | 119.87 | 21.77 | 3.10 | 2.20 |
-| MS COCO | Proposed, before | 36.93 | 28.55 | 57.63 | 119.73 | 21.61 | 3.64 | 2.57 |
-| MS COCO | **Proposed, 5 signals** | 36.51 | 28.58 | 57.13 | **121.08** | 21.76 | **2.40** | **1.75** |
+| MS COCO | Proposed, before | 36.88 | 28.55 | 57.61 | 119.67 | 21.59 | 3.46 | 2.49 |
+| MS COCO | **Proposed, 5 signals** | 36.27 | 28.50 | 56.87 | **120.49** | 21.84 | **2.44** | **1.76** |
 | Flickr30k | Baseline, before | 32.81 | 24.15 | 52.46 | 73.93 | 17.86 | 6.48 | 4.94 |
 | Flickr30k | Baseline + reranking | 31.59 | 24.27 | 51.99 | 74.33 | 18.03 | 4.26 | 3.52 |
 | Flickr30k | Proposed, before | 30.21 | 23.85 | 51.97 | 68.06 | 17.73 | 3.24 | 2.62 |
 | Flickr30k | **Proposed, 5 signals** | 31.09 | 23.85 | 52.01 | 71.84 | 18.11 | 2.74 | 2.33 |
 
-- On MS COCO the proposed model lowers CHAIRs from 7.01 to 2.40 (-65.8%) and CHAIRi from 4.88 to 1.75, with CIDEr 1.18 points higher.
+- On MS COCO the proposed model lowers CHAIRs from 7.01 to 2.44 (-65.2%) and CHAIRi from 4.88 to 1.76, with CIDEr 0.59 points higher.
 - On Flickr30k CHAIR also drops, but CIDEr is 2.09 points below the baseline: there, less hallucination costs some caption quality.
-- Captions do not get shorter and do not mention noticeably fewer objects: 1.39 COCO objects per caption (proposed) versus 1.46 (baseline), and recall against objects named by the reference captions is 70.8% versus 71.1%.
+- Captions do not get shorter and do not mention noticeably fewer objects: 1.37 COCO objects per caption (proposed) versus 1.46 (baseline), and recall against objects named by the reference captions is 70.0% versus 71.1%.
 
 **Fixed blocking rule vs learned blocking layer** (MS COCO test):
 
@@ -93,7 +93,7 @@ MS COCO: 5,000 test images, CHAIR computed on the 4,967 images that have object 
 |---|---|---|---|---|
 | Baseline, no blocking | before / 5 signals | 119.90 / 119.87 | 7.01 / 3.10 | 4.88 / 2.20 |
 | Learned blocking layer, μ = 6 | before / 5 signals | 118.27 / 119.54 | 4.37 / 3.04 | 3.08 / 2.20 |
-| Fixed blocking rule, δ = 3 | before / 5 signals | 119.73 / 121.08 | 3.64 / 2.40 | 2.57 / 1.75 |
+| Fixed blocking rule, δ = 3 | before / 5 signals | 119.67 / 120.49 | 3.46 / 2.44 | 2.49 / 1.76 |
 
 The two configurations also differ in how they are trained, so the gap cannot be attributed to the blocking mechanism alone.
 
@@ -101,17 +101,31 @@ The two configurations also differ in how they are trained, so the gap cannot be
 
 | Configuration | CIDEr | CHs | CHi |
 |---|---|---|---|
-| Before reranking | 119.73 | 3.64 | 2.57 |
-| Five signals (r = 3) | 121.08 | 2.40 | 1.75 |
-| Without `S_obj` | 121.27 | 2.70 | 1.91 |
-| Without `S_retr` | 119.91 | 2.46 | 1.79 |
-| Five signals, r = 1 | 121.24 | 2.56 | 1.85 |
+| Before reranking | 119.67 | 3.46 | 2.49 |
+| Five signals (r = 3) | 120.49 | 2.44 | 1.76 |
+| Without `S_obj` | 120.87 | 2.60 | 1.86 |
+| Without `S_retr` | 119.34 | 2.46 | 1.78 |
+| Five signals, r = 1 | 120.68 | 2.48 | 1.78 |
 
 **Inference cost (per image, RTX 3050 Laptop):** 1,855 ms for the full pipeline versus 357 ms for the baseline with one beam-search caption. Retrieval adds 52 ms, the two retrieval-based signals 38 ms, YOLO-World 111 ms, the reranker 197 ms.
 
-<!-- ONOFF_TABLE_EN -->
+**On/off ablation (MS COCO, 5,000 images, one seed).** "Before"/"after" means before/after the five-signal reranker. CHAIRs and CHAIRi (%) are computed on 4,967 images. The evidence source feeds both the blocking rule and the `S_obj` signal, and the two no-blocking rows use the union of both sources. δ = 3 was chosen on the validation split with the union source and kept for the other sources. SPICE was not measured.
 
-Limitations: each configuration was run once (one seed); CHAIR only covers the 80 COCO classes, not attributes, counts or relations;
+| Configuration | CHAIRs before | CIDEr before | CHAIRs after | CHAIRi after | CIDEr after | Recall after |
+|---|---|---|---|---|---|---|
+| Baseline generator, no blocking | 7.01 | 119.90 | 3.10 | 2.20 | 119.87 | 70.3 |
+| Baseline generator, blocking (YOLO-World + retrieval) | 3.81 | 119.14 | 2.76 | 1.99 | 119.78 | 69.9 |
+| Proposed generator, no blocking | 6.68 | 120.79 | 3.06 | 2.17 | 121.26 | 70.4 |
+| Proposed generator, blocking (YOLO-World only) | 2.90 | 118.51 | 2.21 | 1.66 | 118.66 | 68.5 |
+| Proposed generator, blocking (retrieval only) | 2.64 | 114.83 | 1.25 | 1.07 | 112.61 | 59.6 |
+| **Proposed generator, blocking (YOLO-World + retrieval)** | **3.46** | **119.67** | **2.44** | **1.76** | **120.49** | **70.0** |
+
+Observations:
+- Logit blocking removes the most hallucination at generation time (CHAIRs 6.68 to 3.46 for the proposed generator, 7.01 to 3.81 for the baseline).
+- Dynamic Logits and contrastive training reduce hallucination only slightly (without blocking, CHAIRs 6.68 vs 7.01 before and 3.06 vs 3.10 after reranking) but give higher CIDEr and recall. With blocking on for both, CHAIRs after reranking is 2.44 vs 2.76.
+- Retrieval-only evidence gives the lowest CHAIRs but CIDEr drops by 7.88 points and recall falls to 59.6%, i.e. the model simply mentions far fewer objects. The union source gives the best CIDEr and recall, so it is the one used.
+
+Limitations: each configuration was run once (one seed); the proposed model was trained for 48 epochs and the baseline for 40; CHAIR only covers the 80 COCO classes, not attributes, counts or relations;
 Flickr30k has no COCO object labels, so CHAIR there relies on labels extracted from the reference captions.
 
 ## 4. Folder layout
@@ -119,7 +133,7 @@ Flickr30k has no COCO object labels, so CHAIR there relies on labels extracted f
 | Path | Role |
 |---|---|
 | `notebooks/01_baseline_clipvit-transformer-coco2014.ipynb` | Train the baseline (cross-entropy), produces `restval_baseline_best_model.pth` |
-| `notebooks/02_train_proposed_dynlogits_contrastive_attnpool.ipynb` | Train the **proposed model** (Dynamic Logits + multi-positive contrastive learning + attention pooling) in two stages (see the first cell), produces `restval_dynlogits_contrastive_attnpool_epoch40_model.pth` |
+| `notebooks/02_train_proposed_dynlogits_contrastive_attnpool.ipynb` | Train the **proposed model** (Dynamic Logits + multi-positive contrastive learning + attention pooling) in two stages (see the first cell), uses the epoch-48 checkpoint (`dynlogits_contrastive_attnpool_epoch48_model.pth`, lowest validation loss) |
 | `notebooks/03_ablation_learned_gate_evgatedrop.ipynb` | Control configuration: learned blocking layer (EvidenceGate) |
 | `notebooks/04_flickr30k_train_baseline.ipynb`, `05_flickr30k_train_proposed.ipynb` | Train baseline and proposed model on Flickr30k |
 | `notebooks/eval/coco2014-eval-preranking.ipynb` | Evaluate captions before reranking (plain beam search) |
@@ -151,7 +165,7 @@ Shared modules in the `demo/` root: `local_captioner.py`, `generate.py`, `clipsc
    python Graduation_Thesis/eval/build_yoloworld_report.py --report results/seed43_restval_e10_rerank_test.json --output results/seed43_restval_e10_rerank_test_yoloworld.json
    ```
 
-2. **Choose δ on the first 1,000 val images** (pick the δ with the lowest CHAIRs after reranking whose CIDEr is not more than 1 point below the no-blocking case):
+2. **Choose δ on the first 1,000 val images** (this sweep was run once before switching to E48 and has not been repeated; pick the δ with the lowest CHAIRs after reranking whose CIDEr is not more than 1 point below the no-blocking case):
 
    ```
    python Graduation_Thesis/eval/retrieval_logit_bias_experiment.py --report results/val1000_yoloworld.json --max-images 1000 --checkpoint restval_dynlogits_contrastive_attnpool_epoch40_model.pth --vocab-file ../dataset/coco2014_karpathy_restval_dynlogits_contrastive_attnpool_vocab.json --configs 0,0 0,1 0,2 0,3 0,4 --output results/ksweep_e40_val1000.json
@@ -160,7 +174,7 @@ Shared modules in the `demo/` root: `local_captioner.py`, `generate.py`, `clipsc
 3. **Generate on test** with δ = 3, in 4 shards so an interrupted run loses nothing (`--save-rows` keeps the candidates for step 4):
 
    ```
-   python Graduation_Thesis/eval/retrieval_logit_bias_experiment.py --report results/seed43_restval_e10_rerank_test_yoloworld.json --start 0 --max-images 1250 --maj 3 --save-rows --checkpoint restval_dynlogits_contrastive_attnpool_epoch40_model.pth --vocab-file ../dataset/coco2014_karpathy_restval_dynlogits_contrastive_attnpool_vocab.json --configs 0,3 --output results/e40_g3_test_part0.json
+   python Graduation_Thesis/eval/retrieval_logit_bias_experiment.py --report results/seed43_restval_e10_rerank_test_yoloworld.json --start 0 --max-images 1250 --maj 3 --save-rows --checkpoint dynlogits_contrastive_attnpool_epoch48_model.pth --vocab-file ../dataset/coco2014_karpathy_restval_dynlogits_contrastive_attnpool_vocab.json --configs 0,3 --output results/e48_g3_test_part0.json
    ```
 
    Repeat with `--start 1250`, `2500`, `3750`.

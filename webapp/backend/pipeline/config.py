@@ -81,6 +81,7 @@ class RetrievalConfig:
     min_votes: int = 3  # r: an object enters E(I) when >= r of the K retrieved captions name it
     w_obj: float = 1.0
     w_retr: float = 0.1
+    sobj_min_confidence: float = 0.55  # YOLO-World threshold for S_obj's evidence only (chosen on val), blocking stays at 0.25
 
 
 @dataclass

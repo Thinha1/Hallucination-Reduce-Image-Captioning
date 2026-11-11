@@ -1,0 +1,31 @@
+# Chạy cả frontend lẫn backend trong một container:
+#   docker compose up --build
+# Mở http://localhost:3000 (giao diện), http://localhost:8000/docs (API).
+# Mô hình đặt trong ./backend/weights (xem backend/README.md), được mount chỉ đọc.
+
+services:
+  webapp:
+    image: klcn-webapp
+    build:
+      context: .
+      args:
+        # Đổi thành http://<ip-may-chu>:8000 nếu mở giao diện từ máy khác
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+        TORCH_CUDA_TAG: cu121
+    ports:
+      - "3000:3000"
+      - "8000:8000"
+    volumes:
+      - ./backend/weights:/app/webapp/backend/weights:ro
+      - webapp-uploads:/app/webapp/backend/uploads
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
+volumes:
+  webapp-uploads:

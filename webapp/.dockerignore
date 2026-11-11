@@ -1,0 +1,12 @@
+# Mô hình mount qua volume, không đưa vào ngữ cảnh build
+backend/weights
+backend/uploads
+**/node_modules
+**/.next
+**/__pycache__
+**/*.pyc
+**/.git
+**/.vscode
+frontend/.env.local
+frontend/tsconfig.tsbuildinfo
+*.bat

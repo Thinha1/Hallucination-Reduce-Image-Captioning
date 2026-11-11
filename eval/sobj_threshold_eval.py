@@ -34,6 +34,8 @@ def main() -> None:
     ap.add_argument("--evidence", choices=["union", "yolo", "retr"], default="union",
                     help="nguồn bằng chứng E(I) của S_obj: union = YOLO ∪ truy hồi (mặc định), yolo = chỉ YOLO, retr = chỉ truy hồi")
     ap.add_argument("--thresholds", type=int, nargs="+", default=[1, 3])
+    ap.add_argument("--final-only", action="store_true",
+                    help="chỉ chấm cấu hình năm tín hiệu ở các ngưỡng --thresholds (bỏ qua các cấu hình khác, dùng khi chấm SPICE bổ sung)")
     ap.add_argument("--spice", action="store_true", help="tính thêm SPICE (Java 8, ~2,5 phút mỗi cấu hình)")
     args = ap.parse_args()
 
@@ -85,12 +87,15 @@ def main() -> None:
         se.log(str(out))
         return out
 
-    res = {"before_rerank": score([r["baseline_candidate"] for r in rows]),
-           "three_score": score(se.select(per_image, None, K, 0.0)),
-           "five_score_ref": score(se.select(per_image, "combo", K, (0.1, 1.0)))}
+    res = {}
+    if not args.final_only:
+        res = {"before_rerank": score([r["baseline_candidate"] for r in rows]),
+               "three_score": score(se.select(per_image, None, K, 0.0)),
+               "five_score_ref": score(se.select(per_image, "combo", K, (0.1, 1.0)))}
     for thr in args.thresholds:
         so = s_obj(thr)
-        res[f"plus_s_obj_1_{thr}of5"] = score(pick([p["base"] + 1.0 * se.minmax(m) for p, m in zip(per_image, so)]))
+        if not args.final_only:
+            res[f"plus_s_obj_1_{thr}of5"] = score(pick([p["base"] + 1.0 * se.minmax(m) for p, m in zip(per_image, so)]))
         res[f"five_score_{thr}of5"] = score(pick([p["base"] + 0.1 * se.minmax(p["s_retr"][K]) + 1.0 * se.minmax(m)
                                                   for p, m in zip(per_image, so)]))
         res[f"sobj_equal_{thr}of5"] = round(100 * float(np.mean([m.max() == m.min() for m in so])), 1)

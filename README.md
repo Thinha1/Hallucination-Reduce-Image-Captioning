@@ -1,10 +1,10 @@
-# Giảm ảo giác đối tượng trong chú thích ảnh (MS COCO 2014, Flickr30k)
+# Image Captioning Research: giảm ảo giác đối tượng trên MS COCO 2014 và Flickr30k
 
 Tiếng Việt | [English](README_EN.md)
 
-Thư mục này gom mã nguồn cho khóa luận tốt nghiệp: một mô hình chú thích ảnh nhỏ (CLIP ViT-B/16 + bộ giải mã Transformer) có
-cơ chế giảm **ảo giác đối tượng** (câu mô tả nhắc đến vật thể không có trong ảnh) mà vẫn giữ chất lượng câu. Gồm notebook huấn luyện,
-script đánh giá và ứng dụng demo.
+Repo nghiên cứu về chú thích ảnh (image captioning). Hướng hiện tại là giảm **ảo giác đối tượng** (câu mô tả nhắc đến vật thể không có
+trong ảnh) mà vẫn giữ chất lượng câu, trên một mô hình nhỏ (CLIP ViT-B/16 + bộ giải mã Transformer). Mã nguồn cũng là phần thực nghiệm
+của khóa luận tốt nghiệp. Gồm notebook huấn luyện, script đánh giá và ứng dụng demo.
 
 ## 1. Bài toán và ý tưởng
 
@@ -74,16 +74,16 @@ MS COCO: 5.000 ảnh kiểm tra, CHAIR tính trên 4.967 ảnh có nhãn vật t
 |---|---|---|---|---|---|---|---|---|
 | MS COCO | Cơ sở, trước | 36,71 | 28,70 | 57,50 | 119,90 | 21,69 | 7,01 | 4,88 |
 | MS COCO | Cơ sở + chọn lại câu | 35,82 | 28,51 | 56,52 | 119,87 | 21,77 | 3,10 | 2,20 |
-| MS COCO | Đề xuất, trước | 36,93 | 28,55 | 57,63 | 119,73 | 21,61 | 3,64 | 2,57 |
-| MS COCO | **Đề xuất, 5 tín hiệu** | 36,51 | 28,58 | 57,13 | **121,08** | 21,76 | **2,40** | **1,75** |
+| MS COCO | Đề xuất, trước | 36,88 | 28,55 | 57,61 | 119,67 | 21,59 | 3,46 | 2,49 |
+| MS COCO | **Đề xuất, 5 tín hiệu** | 36,27 | 28,50 | 56,87 | **120,49** | 21,84 | **2,44** | **1,76** |
 | Flickr30k | Cơ sở, trước | 32,81 | 24,15 | 52,46 | 73,93 | 17,86 | 6,48 | 4,94 |
 | Flickr30k | Cơ sở + chọn lại câu | 31,59 | 24,27 | 51,99 | 74,33 | 18,03 | 4,26 | 3,52 |
 | Flickr30k | Đề xuất, trước | 30,21 | 23,85 | 51,97 | 68,06 | 17,73 | 3,24 | 2,62 |
 | Flickr30k | **Đề xuất, 5 tín hiệu** | 31,09 | 23,85 | 52,01 | 71,84 | 18,11 | 2,74 | 2,33 |
 
-- Trên MS COCO, mô hình đề xuất giảm CHAIRs từ 7,01 xuống 2,40 (-65,8%) và CHAIRi từ 4,88 xuống 1,75, CIDEr cao hơn 1,18 điểm.
+- Trên MS COCO, mô hình đề xuất giảm CHAIRs từ 7,01 xuống 2,44 (-65,2%) và CHAIRi từ 4,88 xuống 1,76, CIDEr cao hơn 0,59 điểm.
 - Trên Flickr30k, CHAIR cũng giảm nhưng CIDEr thấp hơn cơ sở 2,09 điểm: ở đó giảm ảo giác đổi lấy một phần chất lượng câu.
-- Câu không ngắn đi và không nhắc ít vật thể hơn đáng kể: số vật thể COCO nhắc mỗi câu là 1,39 (đề xuất) so với 1,46 (cơ sở), recall theo vật thể có trong câu tham chiếu 70,8% so với 71,1%.
+- Câu không ngắn đi và không nhắc ít vật thể hơn đáng kể: số vật thể COCO nhắc mỗi câu là 1,37 (đề xuất) so với 1,46 (cơ sở), recall theo vật thể có trong câu tham chiếu 70,0% so với 71,1%.
 
 **Luật chặn cố định so với lớp chặn học được** (MS COCO test):
 
@@ -91,7 +91,7 @@ MS COCO: 5.000 ảnh kiểm tra, CHAIR tính trên 4.967 ảnh có nhãn vật t
 |---|---|---|---|---|
 | Cơ sở, không chặn | trước / 5 tín hiệu | 119,90 / 119,87 | 7,01 / 3,10 | 4,88 / 2,20 |
 | Lớp chặn học được, μ = 6 | trước / 5 tín hiệu | 118,27 / 119,54 | 4,37 / 3,04 | 3,08 / 2,20 |
-| Luật chặn cố định, δ = 3 | trước / 5 tín hiệu | 119,73 / 121,08 | 3,64 / 2,40 | 2,57 / 1,75 |
+| Luật chặn cố định, δ = 3 | trước / 5 tín hiệu | 119,67 / 120,49 | 3,46 / 2,44 | 2,49 / 1,76 |
 
 Hai cấu hình khác nhau cả cách huấn luyện, nên chênh lệch không quy riêng cho cách chặn được.
 
@@ -99,24 +99,38 @@ Hai cấu hình khác nhau cả cách huấn luyện, nên chênh lệch không 
 
 | Cấu hình | CIDEr | CHs | CHi |
 |---|---|---|---|
-| Trước khi chọn lại câu | 119,73 | 3,64 | 2,57 |
-| Năm tín hiệu (r = 3) | 121,08 | 2,40 | 1,75 |
-| Bỏ `S_obj` | 121,27 | 2,70 | 1,91 |
-| Bỏ `S_retr` | 119,91 | 2,46 | 1,79 |
-| Năm tín hiệu, r = 1 | 121,24 | 2,56 | 1,85 |
+| Trước khi chọn lại câu | 119,67 | 3,46 | 2,49 |
+| Năm tín hiệu (r = 3) | 120,49 | 2,44 | 1,76 |
+| Bỏ `S_obj` | 120,87 | 2,60 | 1,86 |
+| Bỏ `S_retr` | 119,34 | 2,46 | 1,78 |
+| Năm tín hiệu, r = 1 | 120,68 | 2,48 | 1,78 |
 
 **Chi phí suy luận (mỗi ảnh, RTX 3050 Laptop):** toàn quy trình 1.855 ms, mô hình cơ sở một câu beam search 357 ms. Truy hồi thêm 52 ms, hai tín hiệu dựa trên câu truy hồi thêm 38 ms, YOLO-World 111 ms, bộ chọn lại câu 197 ms.
 
-<!-- ONOFF_TABLE -->
+**Bật/tắt từng thành phần (MS COCO, 5.000 ảnh, một seed).** "Trước"/"sau" là trước/sau khi chọn lại câu bằng bộ năm tín hiệu. CHAIRs, CHAIRi (%) tính trên 4.967 ảnh. Nguồn bằng chứng dùng cho cả luật chặn và tín hiệu `S_obj`, hai hàng không chặn dùng hợp hai nguồn. δ = 3 chọn trên tập kiểm định với nguồn hợp, giữ nguyên cho các nguồn còn lại. Không đo SPICE.
 
-Giới hạn: mỗi cấu hình chỉ có một lần chạy (một seed); CHAIR chỉ đo 80 lớp COCO, không đo thuộc tính, số lượng, quan hệ; Flickr30k không có nhãn vật thể COCO nên CHAIR ở đó dựa trên nhãn rút từ câu tham chiếu.
+| Cấu hình | CHAIRs trước | CIDEr trước | CHAIRs sau | CHAIRi sau | CIDEr sau | Recall sau |
+|---|---|---|---|---|---|---|
+| Bộ sinh cơ sở, không chặn | 7,01 | 119,90 | 3,10 | 2,20 | 119,87 | 70,3 |
+| Bộ sinh cơ sở, chặn (YOLO-World + truy hồi) | 3,81 | 119,14 | 2,76 | 1,99 | 119,78 | 69,9 |
+| Bộ sinh đề xuất, không chặn | 6,68 | 120,79 | 3,06 | 2,17 | 121,26 | 70,4 |
+| Bộ sinh đề xuất, chặn (chỉ YOLO-World) | 2,90 | 118,51 | 2,21 | 1,66 | 118,66 | 68,5 |
+| Bộ sinh đề xuất, chặn (chỉ truy hồi) | 2,64 | 114,83 | 1,25 | 1,07 | 112,61 | 59,6 |
+| **Bộ sinh đề xuất, chặn (YOLO-World + truy hồi)** | **3,46** | **119,67** | **2,44** | **1,76** | **120,49** | **70,0** |
+
+Nhận xét:
+- Luật chặn là thành phần giảm CHAIRs nhiều nhất ở bước sinh câu (6,68 xuống 3,46 với bộ sinh đề xuất, 7,01 xuống 3,81 với bộ sinh cơ sở).
+- Dynamic Logits và học tương phản chỉ giảm ảo giác ở mức nhỏ (khi không chặn, CHAIRs 6,68 so với 7,01 trước và 3,06 so với 3,10 sau khi chọn lại câu) nhưng cho CIDEr và recall cao hơn. Khi cả hai bật luật chặn, CHAIRs sau chọn lại câu là 2,44 so với 2,76.
+- Chỉ dùng câu truy hồi cho CHAIRs thấp nhất nhưng CIDEr giảm 7,88 điểm và recall chỉ 59,6%, tức mô hình nhắc ít vật thể hơn hẳn. Nguồn hợp cho CIDEr và recall cao nhất, nên được chọn.
+
+Giới hạn: mỗi cấu hình chỉ có một lần chạy (một seed); mô hình đề xuất huấn luyện 48 epoch còn mô hình cơ sở 40 epoch; CHAIR chỉ đo 80 lớp COCO, không đo thuộc tính, số lượng, quan hệ; Flickr30k không có nhãn vật thể COCO nên CHAIR ở đó dựa trên nhãn rút từ câu tham chiếu.
 
 ## 4. Cấu trúc thư mục
 
 | Đường dẫn | Vai trò |
 |---|---|
 | `notebooks/01_baseline_clipvit-transformer-coco2014.ipynb` | Huấn luyện mô hình cơ sở (cross-entropy), ra `restval_baseline_best_model.pth` |
-| `notebooks/02_train_proposed_dynlogits_contrastive_attnpool.ipynb` | Huấn luyện **mô hình đề xuất** (Dynamic Logits + học tương phản đa mẫu dương + attention pooling), hai giai đoạn (xem ô đầu notebook), ra `restval_dynlogits_contrastive_attnpool_epoch40_model.pth` |
+| `notebooks/02_train_proposed_dynlogits_contrastive_attnpool.ipynb` | Huấn luyện **mô hình đề xuất** (Dynamic Logits + học tương phản đa mẫu dương + attention pooling), hai giai đoạn (xem ô đầu notebook), dùng checkpoint epoch 48 (`dynlogits_contrastive_attnpool_epoch48_model.pth`, loss kiểm định thấp nhất) |
 | `notebooks/03_ablation_learned_gate_evgatedrop.ipynb` | Phương án đối chứng: lớp chặn học được (EvidenceGate) |
 | `notebooks/04_flickr30k_train_baseline.ipynb`, `05_flickr30k_train_proposed.ipynb` | Huấn luyện cơ sở và đề xuất trên Flickr30k |
 | `notebooks/eval/coco2014-eval-preranking.ipynb` | Đánh giá câu trước khi chọn lại (beam search thường) |
@@ -148,7 +162,7 @@ Module dùng chung ở gốc `demo/`: `local_captioner.py`, `generate.py`, `clip
    python Graduation_Thesis/eval/build_yoloworld_report.py --report results/seed43_restval_e10_rerank_test.json --output results/seed43_restval_e10_rerank_test_yoloworld.json
    ```
 
-2. **Chọn δ trên 1.000 ảnh val** (chọn δ cho CHAIRs thấp nhất sau chọn lại câu, với CIDEr không thấp hơn trường hợp không chặn quá 1 điểm):
+2. **Chọn δ trên 1.000 ảnh val** (lần quét này chạy một lần trước khi chuyển sang E48 và chưa chạy lại; chọn δ cho CHAIRs thấp nhất sau chọn lại câu, với CIDEr không thấp hơn trường hợp không chặn quá 1 điểm):
 
    ```
    python Graduation_Thesis/eval/retrieval_logit_bias_experiment.py --report results/val1000_yoloworld.json --max-images 1000 --checkpoint restval_dynlogits_contrastive_attnpool_epoch40_model.pth --vocab-file ../dataset/coco2014_karpathy_restval_dynlogits_contrastive_attnpool_vocab.json --configs 0,0 0,1 0,2 0,3 0,4 --output results/ksweep_e40_val1000.json
@@ -157,7 +171,7 @@ Module dùng chung ở gốc `demo/`: `local_captioner.py`, `generate.py`, `clip
 3. **Sinh câu trên test** với δ = 3, chia 4 mảnh để dừng giữa chừng không mất kết quả (`--save-rows` giữ ứng viên cho bước 4):
 
    ```
-   python Graduation_Thesis/eval/retrieval_logit_bias_experiment.py --report results/seed43_restval_e10_rerank_test_yoloworld.json --start 0 --max-images 1250 --maj 3 --save-rows --checkpoint restval_dynlogits_contrastive_attnpool_epoch40_model.pth --vocab-file ../dataset/coco2014_karpathy_restval_dynlogits_contrastive_attnpool_vocab.json --configs 0,3 --output results/e40_g3_test_part0.json
+   python Graduation_Thesis/eval/retrieval_logit_bias_experiment.py --report results/seed43_restval_e10_rerank_test_yoloworld.json --start 0 --max-images 1250 --maj 3 --save-rows --checkpoint dynlogits_contrastive_attnpool_epoch48_model.pth --vocab-file ../dataset/coco2014_karpathy_restval_dynlogits_contrastive_attnpool_vocab.json --configs 0,3 --output results/e48_g3_test_part0.json
    ```
 
    Lặp với `--start 1250`, `2500`, `3750`.

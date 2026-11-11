@@ -474,8 +474,9 @@ def run_rerank_step(job_id: str) -> RerankStepResponse:
         # S_obj and S_retr go on top of the three-signal formula (the proposed method).
         if result.ranked and job.evidence is not None and engines.retrieval.loaded:
             cfg = engines.config.retrieval
+            sobj_evidence = engines.retrieval.evidence(job.objects or [], job.retrieval, cfg.sobj_min_confidence)
             ranked, flags = apply_retrieval_signals(
-                result.ranked, scored, engines.retrieval, job.retrieval, job.evidence, cfg.w_obj, cfg.w_retr
+                result.ranked, scored, engines.retrieval, job.retrieval, sobj_evidence, cfg.w_obj, cfg.w_retr
             )
             result = replace(
                 result,

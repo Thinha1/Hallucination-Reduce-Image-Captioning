@@ -53,6 +53,8 @@ alpha/beta/gamma = 0,2/0,4/0,4 (khong doc tu `.env`).
 | `WEIGHTS_DIR` | `webapp/backend/weights` | Thu muc chua mo hinh |
 | `YOLO_MODEL_PATH` | `weights/yolov8l-worldv2.pt` | Duong dan checkpoint YOLO |
 | `PIPELINE_DEVICE` | `cuda` neu co, khong thi `cpu` | Torch device cho moi mo hinh |
+| `PRELOAD_ALL_MODELS` | `1` | Nap san tat ca checkpoint trong `models.json` luc khoi dong (dat `0` de chi nap mo hinh mac dinh) |
+| `AUTO_LOAD_RETRIEVAL` | `1` | Tu nap kho truy hoi luc khoi dong (dat `0` de nap tay bang nut tren giao dien) |
 
 ## Endpoints
 
